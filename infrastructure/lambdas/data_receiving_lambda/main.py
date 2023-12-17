@@ -1,23 +1,28 @@
-import json
 import logging
+from decimal import Decimal
 
 import boto3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def handler(event, context):
-    print('MAIN Event: ', event)
-    logger.info('MAIN Event2: %s', event)
 
+def handler(event, context):
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table("WeatherData")
 
-    response = table.put_item(
-       Item={
-            "DeviceId": "ABCDEF",
-            "Timestamp": 1234567890,
-            "Temperature": 20,
-            "Humidity": 50
+    device_id = event["device_id"]
+    count = event["count"]
+
+    # TODO make bulk write
+    for i in range(count):
+        item = {
+            "DeviceId": device_id,
+            "Timestamp": event["timestamp"][i],
+            "Temperature": Decimal(event["temperature"][i]),
+            "Humidity": Decimal(event["humidity"][i]),
         }
-    )
+        logger.info(f"PutItem: {item}")
+        table.put_item(Item=item)
+
+    print("PutItem succeeded")

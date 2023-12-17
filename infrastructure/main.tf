@@ -2,6 +2,10 @@ provider "aws" {
   region = var.aws_region
 }
 
+/*
+ * S3 bucket for storing lambda functions
+ */
+
 resource "random_pet" "lambda_bucket_name" {
   prefix = "weather-station"
   length = 4
@@ -24,6 +28,9 @@ resource "aws_s3_bucket_acl" "lambda_bucket" {
   acl        = "private"
 }
 
+/*
+ * Database query lambda function
+ */
 data "archive_file" "db_query_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/lambdas/${var.db_query_lambda_name}"
@@ -76,9 +83,9 @@ resource "aws_iam_role_policy_attachment" "lambda_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-
-# API Gateway to lambda functions
-
+/*
+ * API Gateway to database query lambda function
+ */
 resource "aws_apigatewayv2_api" "lambda" {
   name          = "serverless_lambda_gateway"
   protocol_type = "HTTP"
@@ -142,8 +149,10 @@ resource "aws_lambda_permission" "api_gateway" {
   source_arn    = "${aws_apigatewayv2_api.lambda.execution_arn}/*/*"
 }
 
-# IoT data recieving lambda, which will write data to DynamoDB
 
+/*
+ * IoT data recieving lambda, which writes data to DynamoDB
+ */
 data "archive_file" "data_receiving_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/lambdas/data_receiving_lambda"
@@ -172,7 +181,7 @@ resource "aws_cloudwatch_log_group" "data_recieving_lambda" {
   retention_in_days = 30
 }
 
-# Rule for iot topic to trigger lambda
+# Rule for IoT topic to trigger lambda
 resource "aws_iot_topic_rule" "pass_data_to_data_reciever" {
   name        = "PassDataToDataReciever"
   enabled     = true
@@ -190,7 +199,9 @@ resource "aws_lambda_permission" "allow_data_recieving_lambda" {
   principal     = "iot.amazonaws.com"
 }
 
-# DynamoDB table for storing weather data
+/*
+ * DynamoDB table for storing weather data
+ */
 resource "aws_dynamodb_table" "weather_data" {
   name         = "WeatherData"
   billing_mode = "PAY_PER_REQUEST"
@@ -273,7 +284,9 @@ resource "aws_iam_role_policy_attachment" "allow_access_to_weather_data" {
   policy_arn = aws_iam_policy.weather_data_access.arn
 }
 
-# Building react application
+/*
+ * Building react application
+ */
 data "external" "frontend_build" {
   program = ["bash", "-c", <<EOT
 REACT_APP_API_URL=$(jq -r '.api_url') npm run build  >&2 && echo "{\"dest\": \"build\"}"
@@ -285,9 +298,9 @@ EOT
   }
 }
 
-# Uploading react application to S3 bucket
-
-
+/*
+ * S3 bucket for storing react application
+ */
 resource "random_pet" "react_bucket_name" {
   prefix = "weather-station-react"
   length = 4
@@ -324,10 +337,8 @@ resource "aws_s3_bucket_acl" "react_bucket" {
 }
 
 // Uploading react application to S3 bucket
-//
 locals {
   # Maps file extensions to mime types
-  # Need to add more if needed
   mime_type_mappings = {
     html = "text/html",
     js   = "text/javascript",
